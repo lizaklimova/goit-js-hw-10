@@ -1,6 +1,5 @@
 import { fetchBreeds, fetchCatByBreed } from './cat-api';
 import SlimSelect from 'slim-select';
-
 import Notiflix from 'notiflix';
 
 const refs = {
@@ -9,25 +8,35 @@ const refs = {
 };
 
 refs.selectRef.addEventListener('change', onSelectChange);
+window.addEventListener('load', onLoadFetchBreeds);
 showContent('none');
 
+function createSlimSelect(ref) {
+  const select = new SlimSelect({
+    select: ref,
+    settings: {
+      placeholderText: 'Select the breed of cat 🐈',
+    },
+  });
+}
+
 // ~ Парсинг опцій
-fetchBreeds()
-  .then(data => {
-    refs.selectRef.insertAdjacentHTML('beforeend', optionsMarkup(data));
-    new SlimSelect({
-      select: document.querySelector('.breed-select'),
-      settings: {
-        placeholderText: 'Select the breed of cat 🐈',
-        // ! Підкажіть, будь ласка, чому плейсхолдер не відображається? Селект відображає першу опцію!
-      },
-    });
-  })
-  .catch(() =>
-    Notiflix.Notify.failure(
-      'Ooops!😮 Something went wrong! Try reloading the page! ❗️'
+function onLoadFetchBreeds() {
+  fetchBreeds()
+    .then(data => {
+      Notiflix.Loading.circle();
+
+      repaintMarkup('beforeend', optionsMarkup(data));
+
+      createSlimSelect(refs.selectRef);
+    })
+    .catch(() =>
+      Notiflix.Notify.failure(
+        'Ooops!😮 Something went wrong! Try reloading the page! ❗️'
+      )
     )
-  );
+    .finally(() => Notiflix.Loading.remove());
+}
 
 // ~ Розмітка опцій випадаючого меню
 function optionsMarkup(arr) {
@@ -46,15 +55,14 @@ function onSelectChange(event) {
   fetchCatByBreed(id)
     .then(data => {
       const baseDist = data[0].breeds[0];
+      const topLevel = data[0];
 
-      const markup = `
-      <img alt="Cat ${baseDist.name}" src="${data[0].url}" />
-        <div class="content"> <h1 class="cat-info-title">${baseDist.name}🐈</h1>
-        <p class ="cat-info-descr">${baseDist.description}</p>
-        <p class = "cat-info-temperament"><span>😊Temperament:&#x20;</span> ${baseDist.temperament}</p></div>
-      `;
       showContent('block');
-      refs.containerRef.innerHTML = markup;
+
+      refs.containerRef.innerHTML = createCatContainerMarkup(
+        baseDist,
+        topLevel
+      );
     })
     .catch(() =>
       Notiflix.Notify.failure(
@@ -66,6 +74,20 @@ function onSelectChange(event) {
     });
 }
 
+function createCatContainerMarkup(commonDist, topLev) {
+  return `
+      <img alt="Cat ${commonDist.name}" src="${topLev.url}" />
+        <div class="content"> <h1 class="cat-info-title">${commonDist.name}🐈</h1>
+        <p class ="cat-info-descr">${commonDist.description}</p>
+        <p class = "cat-info-temperament"><span>😊Temperament:&#x20;</span> ${commonDist.temperament}</p></div>
+      `;
+}
+
 function showContent(display) {
   refs.containerRef.style.display = display;
+}
+
+// ~ Ріпейнт обраного котика
+function repaintMarkup(place, markup) {
+  refs.selectRef.insertAdjacentHTML(place, markup);
 }
